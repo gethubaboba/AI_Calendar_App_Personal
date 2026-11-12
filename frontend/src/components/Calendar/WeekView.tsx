@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDate } from '@/lib/calendarDate';
+
 import type { CalendarEvent } from '@/types';
 
 interface WeekViewProps {
@@ -35,7 +37,7 @@ export default function WeekView({ currentDate, events, selectedDate, onSelectDa
   };
 
   const monday = getMonday(currentDate);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = calendarDate(new Date());
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
@@ -43,7 +45,7 @@ export default function WeekView({ currentDate, events, selectedDate, onSelectDa
     return d;
   });
 
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = (d: Date) => calendarDate(d);
 
   return (
     <div className="flex flex-col gap-2">
@@ -54,17 +56,19 @@ export default function WeekView({ currentDate, events, selectedDate, onSelectDa
         const isSelected = dateStr === selectedDate;
 
         return (
-          <div
+          <button
             key={dateStr}
-            onClick={() => onSelectDate(dateStr)}
-            className={`flex gap-4 p-3 rounded-xl cursor-pointer transition-all border ${
+            aria-label={dateStr}
+              aria-pressed={isSelected}
+              onClick={() => onSelectDate(dateStr)}
+            className={`text-left flex gap-2 sm:gap-4 p-2 sm:p-3 rounded-xl cursor-pointer transition-all border ${
               isSelected
                 ? 'bg-emerald-50 border-emerald-200'
                 : 'border-transparent hover:bg-slate-50'
             }`}
           >
             {/* День */}
-            <div className="w-16 shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <div className="w-10 sm:w-16 shrink-0 flex flex-col items-center justify-start pt-0.5">
               <span className="text-xs text-slate-400">{WEEKDAYS[i]}</span>
               <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold mt-0.5 ${
                 isToday
@@ -76,7 +80,7 @@ export default function WeekView({ currentDate, events, selectedDate, onSelectDa
             </div>
 
             {/* События */}
-            <div className="flex-1 flex flex-col gap-1.5 min-h-[40px]">
+            <div className="min-w-0 flex-1 flex flex-col gap-1.5 min-h-[40px]">
               {dayEvents.length === 0 ? (
                 <span className="text-xs text-slate-300 self-center mt-2">нет событий</span>
               ) : (
@@ -94,7 +98,7 @@ export default function WeekView({ currentDate, events, selectedDate, onSelectDa
                 ))
               )}
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

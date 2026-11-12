@@ -5,7 +5,7 @@ schemas.py — Pydantic-схемы для валидации запросов и
 # Импортируем типы под алиасами, чтобы имена полей (date, time) не конфликтовали
 # с именами типов в Pydantic v2 при разрешении аннотаций.
 import datetime as _dt
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, EmailStr
 
 
@@ -63,13 +63,16 @@ class TokenRefresh(BaseModel):
 # EVENT
 # ─────────────────────────────────────────────
 
+EventType = Literal["meeting", "task", "note"]
+
+
 class EventCreate(BaseModel):
     title: str
     description: Optional[str] = None
     date: Date
     start_time: Optional[Time] = None
     end_time: Optional[Time] = None
-    type: str = "task"
+    type: EventType = "task"
     link: Optional[str] = None
     template_id: Optional[int] = None
 
@@ -80,7 +83,7 @@ class EventUpdate(BaseModel):
     date: Optional[Date] = None
     start_time: Optional[Time] = None
     end_time: Optional[Time] = None
-    type: Optional[str] = None
+    type: Optional[EventType] = None
     link: Optional[str] = None
 
 
@@ -133,7 +136,7 @@ class NoteOut(BaseModel):
 
 class TemplateCreate(BaseModel):
     title: str
-    type: str = "task"
+    type: EventType = "task"
     default_duration: Optional[int] = None
     description: Optional[str] = None
     link: Optional[str] = None

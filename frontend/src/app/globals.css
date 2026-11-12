@@ -10,3 +10,32 @@ body {
   background-color: #f8fafc;
   color: #0f172a;
 }
+
+.mobile-navigation {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-dialog {
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.mobile-dialog > [role="dialog"] {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body:has(.mobile-dialog) {
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  body { overflow-wrap: anywhere; }
+  header { padding-top: env(safe-area-inset-top); }
+  button, input, .mobile-navigation a { min-height: 44px; }
+  button[aria-label], article a, a[aria-label] { min-width: 44px; }
+  .grid-cols-7 button { min-width: 0; }
+  button[aria-label] > svg:only-child { margin-inline: auto; }
+  input, textarea { min-width: 0; max-width: 100%; }
+  article a, a[aria-label] { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+}

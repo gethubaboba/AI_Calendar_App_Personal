@@ -22,7 +22,7 @@ import models
 config = context.config
 
 # Переопределяем URL базы данных из .env
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDate } from '@/lib/calendarDate';
+
 import type { CalendarEvent } from '@/types';
 
 interface MonthViewProps {
@@ -27,7 +29,7 @@ export default function MonthView({ currentDate, events, selectedDate, onSelectD
   startDow = startDow === 0 ? 6 : startDow - 1; // 0 = пн
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr    = new Date().toISOString().slice(0, 10);
+  const todayStr    = calendarDate(new Date());
 
   const fmt = (d: number) => {
     const dd = String(d).padStart(2, '0');
@@ -65,8 +67,10 @@ export default function MonthView({ currentDate, events, selectedDate, onSelectD
           const isSelected = dateStr === selectedDate;
 
           return (
-            <div
+            <button
               key={dateStr}
+              aria-label={dateStr}
+              aria-pressed={isSelected}
               onClick={() => onSelectDate(dateStr)}
               className={`min-h-[44px] sm:min-h-[64px] lg:min-h-[72px] p-1 sm:p-1.5 rounded-lg sm:rounded-xl cursor-pointer transition-all border ${
                 isSelected
@@ -98,7 +102,7 @@ export default function MonthView({ currentDate, events, selectedDate, onSelectD
                   <span className="text-[9px] sm:text-[10px] text-slate-400 pl-0.5">+{dayEvents.length - 2}</span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

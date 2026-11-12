@@ -48,7 +48,10 @@ def _str_to_date(s: Optional[str]) -> Optional[_dt.date]:
     """Конвертирует строку 'YYYY-MM-DD' в date, либо None."""
     if not s:
         return None
-    return _dt.date.fromisoformat(s)
+    try:
+        return _dt.date.fromisoformat(s)
+    except ValueError:
+        raise HTTPException(422, "Укажите дату в формате YYYY-MM-DD")
 
 
 @router.post("", response_model=schemas.NoteOut, status_code=status.HTTP_201_CREATED)
@@ -83,7 +86,7 @@ def update_note(
         note.title = data.title
     if data.text is not None:
         note.text = data.text
-    if data.note_date is not None:
+    if "note_date" in data.model_fields_set:
         note.date = _str_to_date(data.note_date)
     db.commit()
     db.refresh(note)

@@ -1,22 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import type { Notification } from '@/types';
+import { apiFetchNotifications, apiMarkNotificationRead } from '@/lib/api';
+import type { CalendarEvent, Notification } from '@/types';
 
 interface HeaderProps {
   userName: string;
-  notifications: Notification[];
-  onNotificationRead: (id: number) => void;
+  events?: CalendarEvent[];
   onCreateEvent: () => void;
   onLogout?: () => void;
 }
 
 export default function Header({
   userName,
-  notifications,
-  onNotificationRead,
+  events,
   onCreateEvent,
   onLogout,
 }: HeaderProps) {
@@ -25,6 +24,22 @@ export default function Header({
   const [showNotifications, setShowNotifications] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    apiFetchNotifications().then(items => {
+      if (active) { setNotifications(items); setLoadError(false); }
+    }).catch(() => { if (active) setLoadError(true); });
+    return () => { active = false; };
+  }, [events, showNotifications]);
+  const onNotificationRead = async (id: number) => {
+    try {
+      await apiMarkNotificationRead(id);
+      setNotifications(items => items.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch { setLoadError(true); }
+  };
+
   const unread = notifications.filter(n => !n.isRead).length;
   const showCreateBtn = pathname === '/dashboard';
 
@@ -32,6 +47,7 @@ export default function Header({
     { href: '/dashboard', label: 'Календарь' },
     { href: '/notes',     label: 'Заметки' },
     { href: '/analytics', label: 'Аналитика' },
+    { href: '/agent', label: 'Ассистент' },
   ];
 
   const handleLogout = () => {
@@ -40,7 +56,7 @@ export default function Header({
   };
 
   return (
-    <header className="bg-white border-b border-slate-100 sticky top-0 z-40">
+    <header className="relative bg-white border-b border-slate-100 md:sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3">
 
         {/* Логотип */}
@@ -83,6 +99,7 @@ export default function Header({
 
               <button
                 onClick={onCreateEvent}
+                aria-label="Создать событие"
                 className="sm:hidden w-8 h-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl flex items-center justify-center transition-colors text-lg font-medium"
               >
                 +
@@ -91,9 +108,9 @@ export default function Header({
           )}
 
           {/* Уведомления */}
-          <div className="relative">
+          <div className="sm:relative">
             <button
-              onClick={() => { setShowNotifications(!showNotifications); setMobileMenuOpen(false); }}
+              aria-label="Уведомления" onClick={() => { setShowNotifications(!showNotifications); setMobileMenuOpen(false); }}
               className="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +125,7 @@ export default function Header({
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden z-50">
+              <div className="absolute inset-x-2 sm:left-auto sm:right-0 top-full sm:mt-2 sm:w-80 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden z-50">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <span className="font-semibold text-slate-800 text-sm">Уведомления</span>
                   {unread > 0 && (
@@ -116,14 +133,14 @@ export default function Header({
                   )}
                 </div>
                 <div className="max-h-72 overflow-y-auto">
-                  {notifications.length === 0 ? (
+                  {loadError ? <p role="alert">Не удалось загрузить уведомления</p> : notifications.length === 0 ? (
                     <p className="text-slate-400 text-sm text-center py-6">Нет уведомлений</p>
                   ) : (
                     notifications.map(n => (
-                      <div
+                      <button
                         key={n.id}
                         onClick={() => onNotificationRead(n.id)}
-                        className={`px-4 py-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        className={`px-4 py-3 w-full text-left border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${
                           !n.isRead ? 'bg-emerald-50/40' : ''
                         }`}
                       >
@@ -135,7 +152,7 @@ export default function Header({
                             {n.message}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
@@ -165,6 +182,7 @@ export default function Header({
 
           {/* Hamburger — только мобиле/планшет */}
           <button
+            aria-label="Меню" aria-expanded={mobileMenuOpen}
             onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setShowNotifications(false); }}
             className="md:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
           >

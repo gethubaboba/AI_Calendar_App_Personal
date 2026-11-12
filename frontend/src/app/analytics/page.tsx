@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDate } from '@/lib/calendarDate';
+
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
@@ -21,7 +23,7 @@ const TYPE_COLORS: Record<string, string> = {
 const TYPE_LABELS: Record<string, string> = {
   meeting: 'Встречи',
   task:    'Задачи',
-  note:    'Заметки',
+  note:    'События типа «заметка»',
 };
 const WEEKDAYS_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MONTH_NAMES_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -51,8 +53,8 @@ export default function AnalyticsPage() {
     return {
       start: s,
       end: e,
-      fromStr: s.toISOString().slice(0, 10),
-      toStr: e.toISOString().slice(0, 10),
+      fromStr: calendarDate(s),
+      toStr: calendarDate(e),
     };
   }, [period]);
 
@@ -61,16 +63,18 @@ export default function AnalyticsPage() {
     if (!tokens.getAccess()) { router.push('/auth'); return; }
     apiGetMe()
       .then(u => setUserName(u.name))
-      .catch(() => router.push('/auth'));
+      .catch(() => setUserName(''));
   }, []);
 
   // Загрузка аналитики при смене периода
   useEffect(() => {
+    let active = true;
     setLoading(true);
     apiFetchAnalytics(fromStr, toStr)
-      .then(data => setAnalytics(data))
-      .catch(() => setAnalytics(null))
-      .finally(() => setLoading(false));
+      .then(data => { if (active) setAnalytics(data); })
+      .catch(() => { if (active) setAnalytics(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [fromStr, toStr]);
 
   // Данные для pie chart
@@ -87,7 +91,7 @@ export default function AnalyticsPage() {
     if (period === 'week') {
       return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(start); d.setDate(start.getDate() + i);
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = calendarDate(d);
         const found = analytics.daily_activity.find(a => a.date === dateStr);
         return { name: WEEKDAYS_SHORT[i], События: found?.count ?? 0 };
       });
@@ -100,7 +104,7 @@ export default function AnalyticsPage() {
         const weekStart = new Date(d);
         const weekEnd = new Date(d); weekEnd.setDate(d.getDate() + 6);
         const sum = analytics.daily_activity
-          .filter(a => a.date >= weekStart.toISOString().slice(0, 10) && a.date <= weekEnd.toISOString().slice(0, 10))
+          .filter(a => a.date >= calendarDate(weekStart) && a.date <= calendarDate(weekEnd))
           .reduce((acc, a) => acc + a.count, 0);
         weeks.push({ name: `Нед ${wi}`, События: sum });
         d.setDate(d.getDate() + 7);
@@ -114,7 +118,7 @@ export default function AnalyticsPage() {
   const total    = analytics?.total_events ?? 0;
   const meetings = analytics?.by_type.find(d => d.type === 'meeting')?.count ?? 0;
   const tasks    = analytics?.by_type.find(d => d.type === 'task')?.count ?? 0;
-  const notes    = analytics?.by_type.find(d => d.type === 'note')?.count ?? 0;
+  const notes    = analytics?.total_notes ?? 0;
 
   const periodLabel = period === 'week'
     ? `${start.getDate()} – ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`
@@ -124,15 +128,13 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header
         userName={userName}
-        notifications={[]}
-        onNotificationRead={() => {}}
         onCreateEvent={() => {}}
         onLogout={() => { tokens.clear(); router.push('/auth'); }}
       />
 
       <main className="flex-1 px-6 py-5 max-w-5xl mx-auto w-full">
         {/* Заголовок + переключатель */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-xl font-bold text-slate-800">Аналитика</h1>
             <p className="text-sm text-slate-400">{periodLabel}</p>
@@ -151,7 +153,7 @@ export default function AnalyticsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Загрузка...</div>
-        ) : (
+        ) : !analytics ? <p role="alert">Не удалось загрузить аналитику. <button onClick={() => window.location.reload()}>Повторить</button></p> : (
           <div className="flex flex-col gap-6">
             {/* AI Анализ */}
             <AIWidget />
@@ -162,7 +164,7 @@ export default function AnalyticsPage() {
                 { label: 'Всего событий', value: total,    color: 'text-slate-800',   bg: 'bg-slate-100' },
                 { label: 'Встречи',       value: meetings, color: 'text-emerald-700', bg: 'bg-emerald-50' },
                 { label: 'Задачи',        value: tasks,    color: 'text-blue-700',    bg: 'bg-blue-50' },
-                { label: 'Заметки',       value: notes,    color: 'text-amber-700',   bg: 'bg-amber-50' },
+                { label: 'Всего заметок',       value: notes,    color: 'text-amber-700',   bg: 'bg-amber-50' },
               ].map(card => (
                 <div key={card.label} className={`${card.bg} rounded-2xl p-4`}>
                   <p className="text-xs text-slate-500 mb-1">{card.label}</p>
@@ -174,7 +176,7 @@ export default function AnalyticsPage() {
             {/* Графики */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Bar chart */}
-              <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-5">
+              <div className="lg:col-span-2 bg-white min-w-0 rounded-2xl shadow-sm p-5">
                 <h2 className="font-semibold text-slate-800 text-sm mb-4">
                   События по {period === 'week' ? 'дням' : 'неделям'}
                 </h2>
@@ -198,7 +200,7 @@ export default function AnalyticsPage() {
               </div>
 
               {/* Pie chart */}
-              <div className="bg-white rounded-2xl shadow-sm p-5">
+              <div className="bg-white min-w-0 rounded-2xl shadow-sm p-5">
                 <h2 className="font-semibold text-slate-800 text-sm mb-4">По типам</h2>
                 {pieData.length === 0 ? (
                   <div className="flex items-center justify-center h-48 text-slate-300 text-sm">

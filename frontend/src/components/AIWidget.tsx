@@ -36,7 +36,7 @@ export default function AIWidget() {
           </div>
           <div>
             <h3 className="font-bold text-lg">AI Ассистент</h3>
-            <p className="text-white/70 text-xs">DeepSeek анализирует вашу неделю</p>
+            <p className="text-white/70 text-xs">Ollama анализирует вашу неделю</p>
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export default function AIWidget() {
               <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
               <div className="w-2 h-2 bg-white rounded-full animate-bounce" />
             </div>
-            <p className="text-sm font-medium animate-pulse">DeepSeek анализирует данные...</p>
+            <p className="text-sm font-medium animate-pulse">Ollama анализирует данные...</p>
           </div>
         )}
 

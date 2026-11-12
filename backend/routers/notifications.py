@@ -5,7 +5,8 @@ GET   /api/notifications         — список уведомлений тек�
 PATCH /api/notifications/{id}/read — отметить уведомление как прочитанное
 """
 
-from typing import List
+from datetime import date, datetime, time
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 @router.get("", response_model=List[schemas.NotificationOut])
 def get_notifications(
+    today: Optional[date] = None,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_session),
 ):
@@ -27,7 +29,8 @@ def get_notifications(
     return (
         db.query(models.Notification)
         .filter(models.Notification.user_id == current_user.id)
-        .order_by(models.Notification.send_at.desc())
+        .filter(models.Notification.send_at <= datetime.combine(today or date.today(), time.max))
+        .order_by(models.Notification.send_at.desc(), models.Notification.id.desc())
         .all()
     )
 

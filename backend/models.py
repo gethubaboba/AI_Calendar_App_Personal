@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey, Text, func
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy import JSON
 from db import Base
 
 
@@ -87,6 +88,14 @@ class EventTemplate(Base):
 
     # Связи
     user = relationship("User", back_populates="templates")
+
+
+class AgentProposal(Base):
+    __tablename__ = "agent_proposals"
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    changes = Column(JSON, nullable=False)
 
 
 class Notification(Base):

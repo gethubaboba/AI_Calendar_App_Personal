@@ -1,36 +1,15 @@
-import os
-import asyncio
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from types import SimpleNamespace
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import AsyncMock, patch
 
-# Load .env file
-load_dotenv()
+from services import ai_service
 
-async def test_deepseek():
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    if not api_key:
-        print("ERROR: DEEPSEEK_API_KEY not found in .env")
-        return
 
-    print(f"Testing DeepSeek API with key: {api_key[:10]}...")
-    
-    try:
-        client = AsyncOpenAI(
-            api_key=api_key,
-            base_url="https://api.deepseek.com"
-        )
-        
-        response = await client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "user", "content": "Say 'Hello World' in Russian."}
-            ],
-            stream=False
-        )
-        print("SUCCESS! Response from DeepSeek:")
-        print(response.choices[0].message.content)
-    except Exception as e:
-        print(f"ERROR calling DeepSeek API: {e}")
-
-if __name__ == "__main__":
-    asyncio.run(test_deepseek())
+class OllamaTest(IsolatedAsyncioTestCase):
+    async def test_analysis_uses_configured_model(self):
+        response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="Отчёт"))])
+        with patch.object(ai_service.client.chat.completions, "create", new_callable=AsyncMock) as create:
+            create.return_value = response
+            result = await ai_service.get_ai_productivity_analysis([], [], "Тест")
+        self.assertEqual(result, "Отчёт")
+        self.assertEqual(create.await_args.kwargs["model"], ai_service.LOCAL_MODEL_NAME)

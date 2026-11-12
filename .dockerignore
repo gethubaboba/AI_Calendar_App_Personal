@@ -1,0 +1,6 @@
+**/*.gguf
+.calendar-dev
+.git
+**/.env*
+**/node_modules
+**/venv

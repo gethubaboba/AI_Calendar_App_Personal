@@ -42,13 +42,14 @@ export default function MobileNavigation() {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between items-center z-40 pb-safe">
+    <nav aria-label="Основная навигация" className="mobile-navigation md:hidden sticky bottom-0 bg-white border-t border-slate-200 px-3 flex justify-around items-center z-40">
       {navItems.map((item) => {
         const isActive = pathname?.startsWith(item.href);
         return (
           <Link
             key={item.name}
             href={item.href}
+            aria-current={isActive ? 'page' : undefined}
             className={`flex flex-col items-center gap-1 p-2 ${
               isActive ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-600'
             }`}
@@ -58,6 +59,6 @@ export default function MobileNavigation() {
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

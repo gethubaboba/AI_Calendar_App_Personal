@@ -5,12 +5,12 @@ from openai import AsyncOpenAI
 # Подключаемся к локальному Ollama (который работает на вашем ПК)
 # Используем host.docker.internal, так как наш backend запущен внутри Docker
 client = AsyncOpenAI(
-    base_url="http://host.docker.internal:11434/v1",
+    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
     api_key="ollama"  # Ollama не требует реального ключа
 )
 
 # Вы можете изменить название модели на то, которое скачаете (например, qwen2.5:1.5b или llama3.2)
-LOCAL_MODEL_NAME = "qwen2.5:1.5b"
+LOCAL_MODEL_NAME = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
 
 async def get_ai_productivity_analysis(events: List[dict], notes: List[dict], user_name: str) -> str:
     """

@@ -1,12 +1,14 @@
 'use client';
 
+import { calendarDate } from '@/lib/calendarDate';
+
 import { useState, useEffect } from 'react';
 import type { CalendarEvent, EventType } from '@/types';
 
 interface EventFormProps {
   initialDate?: string;
   event?: CalendarEvent | null;
-  onSave: (event: Omit<CalendarEvent, 'id' | 'userId'>) => void;
+  onSave: (event: Omit<CalendarEvent, 'id' | 'userId'>) => Promise<void>;
   onClose: () => void;
 }
 
@@ -19,7 +21,7 @@ const TYPE_OPTIONS: { value: EventType; label: string }[] = [
 export default function EventForm({ initialDate, event, onSave, onClose }: EventFormProps) {
   const [title, setTitle]       = useState('');
   const [description, setDesc]  = useState('');
-  const [date, setDate]         = useState(initialDate ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate]         = useState(initialDate ?? calendarDate(new Date()));
   const [startTime, setStart]   = useState('');
   const [endTime, setEnd]       = useState('');
   const [type, setType]         = useState<EventType>('meeting');
@@ -38,30 +40,44 @@ export default function EventForm({ initialDate, event, onSave, onClose }: Event
     }
   }, [event]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) { setError('Введите название'); return; }
     if (!date)          { setError('Выберите дату'); return; }
-    onSave({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      date,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
-      type,
-      link: link.trim() || undefined,
-    });
+    if (!TYPE_OPTIONS.some(option => option.value === type)) { setError('Выберите тип события'); return; }
+    if (Boolean(startTime) !== Boolean(endTime) || (startTime && endTime <= startTime)) {
+      setError('Укажите начало и конец интервала. Конец должен быть позже начала.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await onSave({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        date,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        type,
+        link: link.trim() || undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+    <div className="mobile-dialog fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="record-form-title" className="bg-white rounded-2xl shadow-xl w-full max-w-md">
         {/* Шапка */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">
+          <h2 id="record-form-title" className="font-semibold text-slate-800">
             {event ? 'Редактировать событие' : 'Новое событие'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+          <button aria-label="Закрыть" disabled={saving} onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -111,8 +127,8 @@ export default function EventForm({ initialDate, event, onSave, onClose }: Event
           </div>
 
           {/* Дата + время */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-3 sm:col-span-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="col-span-2 sm:col-span-1">
               <label className="block text-sm font-medium text-slate-700 mb-1">Дата *</label>
               <input
                 type="date"
@@ -154,20 +170,20 @@ export default function EventForm({ initialDate, event, onSave, onClose }: Event
           </div>
 
           {error && (
-            <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p role="alert" className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
 
           {/* Кнопки */}
           <div className="flex gap-3 pt-1">
             <button
               type="button"
-              onClick={onClose}
+              disabled={saving} onClick={onClose}
               className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors"
             >
               Отмена
             </button>
             <button
-              type="submit"
+              type="submit" disabled={saving}
               className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-xl transition-colors"
             >
               {event ? 'Сохранить' : 'Создать'}

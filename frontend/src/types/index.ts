@@ -37,4 +37,4 @@ export interface Notification {
   createdAt: string;
 }
 
-export type CalendarView = 'month' | 'week';
+export type CalendarView = 'day' | 'month' | 'week';

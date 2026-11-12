@@ -1,27 +1,17 @@
 """
 main.py — точка входа FastAPI-приложения.
 
-Подключает все роутеры, настраивает CORS и создаёт таблицы при старте.
+Подключает все роутеры, настраивает CORS.
 Swagger UI доступен на http://localhost:8000/docs
 """
 
-from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from db import engine, Base
-import models  # noqa: F401 — чтобы Base увидел все модели перед create_all
-
-from routers import auth, events, notes, templates, analytics, notifications, ai
-
-# ── Lifespan ───────────────────────────────────────────────────────────────────
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Создаёт таблицы при старте, освобождает ресурсы при завершении."""
-    Base.metadata.create_all(bind=engine)
-    yield
+from metrics import RequestMetricsMiddleware, render_metrics
+from routers import auth, events, notes, templates, analytics, notifications, ai, mcp_calendar
 
 # ── Создание приложения ────────────────────────────────────────────────────────
 
@@ -29,18 +19,18 @@ app = FastAPI(
     title="Smart Planner API",
     description="REST API для курсового проекта «Умный планировщик задач»",
     version="1.0.0",
-    lifespan=lifespan,
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Разрешаем запросы с любых источников (включая локальную сеть)
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestMetricsMiddleware)
 
 
 # ── Подключение роутеров ────────────────────────────────────────────────────────
@@ -52,6 +42,7 @@ app.include_router(templates.router)
 app.include_router(analytics.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
+app.include_router(mcp_calendar.router)
 
 
 # ── Health-check ────────────────────────────────────────────────────────────────
@@ -60,3 +51,9 @@ app.include_router(ai.router)
 def health_check():
     """Проверка работоспособности сервера."""
     return {"status": "ok"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics_endpoint():
+    """Expose aggregate HTTP metrics for Prometheus-compatible scrapers."""
+    return render_metrics()

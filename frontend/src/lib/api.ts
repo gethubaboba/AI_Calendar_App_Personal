@@ -6,6 +6,7 @@
  * - Маппер snake_case → camelCase для типов фронтенда
  */
 
+import { calendarDate } from './calendarDate';
 import type { CalendarEvent, Note, Notification } from '@/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -55,7 +56,7 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401 && retry) {
+  if (res.status === 401 && retry && path !== '/api/auth/login') {
     const refreshed = await tryRefresh();
     if (refreshed) return request<T>(path, options, false);
     tokens.clear();
@@ -82,6 +83,28 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
 
   if (res.status === 204) return undefined as T;
   return res.json();
+}
+
+export type AgentProposal = { id: string; changes: {
+  action: 'create' | 'update' | 'delete'; kind: 'event' | 'note'; entry_id: number | null;
+  before: Record<string, string | null> | null; after: Record<string, string | null> | null;
+}[] };
+
+export async function apiAgentChat(message: string, mode: 'advice' | 'propose'): Promise<{ reply: string; proposal?: AgentProposal }> {
+  return request('/api/agent/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, mode }),
+  });
+}
+
+export function previewSchedule(file: File) {
+  return request<{ proposal: AgentProposal | null; errors: { row: number; error: string }[] }>('/api/agent/import', {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+  });
+}
+
+export function confirmAgentProposal(proposal_id: string) {
+  return request<{ applied: number }>('/api/agent/confirm', { method: 'POST', body: JSON.stringify({ proposal_id }) });
 }
 
 // ── Маппер: ответ бэкенда → тип фронтенда ────────────────────────────────────
@@ -175,12 +198,12 @@ export async function apiCreateEvent(data: Omit<CalendarEvent, 'id' | 'userId'>)
 export async function apiUpdateEvent(id: number, data: Partial<Omit<CalendarEvent, 'id' | 'userId'>>): Promise<CalendarEvent> {
   const body: Record<string, unknown> = {};
   if (data.title       !== undefined) body.title       = data.title;
-  if (data.description !== undefined) body.description = data.description;
+  if ('description' in data) body.description = data.description ?? null;
   if (data.date        !== undefined) body.date        = data.date;
-  if (data.startTime   !== undefined) body.start_time  = data.startTime;
-  if (data.endTime     !== undefined) body.end_time    = data.endTime;
+  if ('startTime' in data) body.start_time = data.startTime ?? null;
+  if ('endTime' in data) body.end_time = data.endTime ?? null;
   if (data.type        !== undefined) body.type        = data.type;
-  if (data.link        !== undefined) body.link        = data.link;
+  if ('link' in data) body.link = data.link ?? null;
   const raw = await request<Record<string, unknown>>(`/api/events/${id}`, {
     method: 'PUT',
     body: JSON.stringify(body),
@@ -209,7 +232,7 @@ export async function apiCreateNote(data: { title: string; text: string; date?: 
   return mapNote(raw);
 }
 
-export async function apiUpdateNote(id: number, data: { title?: string; text?: string; date?: string }): Promise<Note> {
+export async function apiUpdateNote(id: number, data: { title?: string; text?: string; date?: string | null }): Promise<Note> {
   const body: Record<string, unknown> = {};
   if (data.title !== undefined) body.title     = data.title;
   if (data.text  !== undefined) body.text      = data.text;
@@ -245,7 +268,7 @@ export async function apiFetchAnalytics(from?: string, to?: string): Promise<Ana
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 export async function apiFetchNotifications(): Promise<Notification[]> {
-  const raw = await request<Record<string, unknown>[]>('/api/notifications');
+  const raw = await request<Record<string, unknown>[]>(`/api/notifications?today=${calendarDate(new Date())}`);
   return raw.map(n => ({
     id:        n.id         as number,
     userId:    n.user_id    as number,

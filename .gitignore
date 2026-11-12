@@ -36,6 +36,8 @@ Thumbs.db
 .env.local
 *.key
 *.pem
+*.gguf
+.calendar-dev/
 
 # Временные и сгенерированные файлы
 *.log
