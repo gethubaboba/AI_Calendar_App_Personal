@@ -5,6 +5,7 @@
 [Метрики и локальный мониторинг](backend_metrics.md)
 
 [Публикация сайта через GitHub Pages и Tailscale Funnel](pages_tailscale.md)
+[Аудит публикации Pages и Funnel](pages_tailscale_audit.md)
 
 ## Лабораторная работа 4
 
