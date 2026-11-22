@@ -12,7 +12,7 @@ models.py — SQLAlchemy ORM-модели для PostgreSQL.
 from datetime import datetime, date, time
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Date, Time,
-    ForeignKey, Text, func
+    ForeignKey, Text, BigInteger, func, text
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy import JSON
@@ -30,11 +30,33 @@ class User(Base):
     avatar_url = Column(String(512), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
+    auth_version = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    mfa_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    mfa_secret = Column(Text, nullable=True)
+    mfa_pending_secret = Column(Text, nullable=True)
+    mfa_pending_expires_at = Column(DateTime, nullable=True)
+    mfa_last_step = Column(BigInteger, nullable=True)
+    mfa_recovery_hashes = Column(JSON, nullable=False, default=list, server_default=text("'[]'"))
+    mfa_failures = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    mfa_locked_until = Column(DateTime, nullable=True)
+    password_failures = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    password_locked_until = Column(DateTime, nullable=True)
+
     # Связи
     events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="user", cascade="all, delete-orphan")
     templates = relationship("EventTemplate", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+
+
+class MFAChallenge(Base):
+    __tablename__ = "mfa_challenges"
+
+    token_hash = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    auth_version = Column(Integer, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    attempts = Column(Integer, nullable=False, default=0, server_default=text("0"))
 
 
 class Event(Base):

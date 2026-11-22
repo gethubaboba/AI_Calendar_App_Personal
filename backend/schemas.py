@@ -6,7 +6,7 @@ schemas.py — Pydantic-схемы для валидации запросов и
 # с именами типов в Pydantic v2 при разрешении аннотаций.
 import datetime as _dt
 from typing import Optional, List, Literal
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 # Удобные псевдонимы
@@ -57,6 +57,31 @@ class Token(BaseModel):
 
 class TokenRefresh(BaseModel):
     refresh_token: str
+
+
+class MFARequired(BaseModel):
+    mfa_required: Literal[True] = True
+    challenge_token: str
+
+
+class MFACode(BaseModel):
+    code: str = Field(min_length=1, max_length=128)
+
+
+class MFAVerify(MFACode):
+    challenge_token: str = Field(min_length=1, max_length=128)
+
+
+class MFASetup(BaseModel):
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class MFADisable(MFASetup, MFACode):
+    pass
+
+
+class MFAEnabled(Token):
+    recovery_codes: List[str]
 
 
 # ─────────────────────────────────────────────

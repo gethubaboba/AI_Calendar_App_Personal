@@ -48,6 +48,7 @@ export default function Header({
     { href: '/notes',     label: 'Заметки' },
     { href: '/analytics', label: 'Аналитика' },
     { href: '/agent', label: 'Ассистент' },
+    { href: '/security', label: 'Безопасность' },
   ];
 
   const handleLogout = () => {

@@ -33,6 +33,15 @@ app.add_middleware(
 app.add_middleware(RequestMetricsMiddleware)
 
 
+@app.middleware("http")
+async def auth_no_store(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 # ── Подключение роутеров ────────────────────────────────────────────────────────
 
 app.include_router(auth.router)

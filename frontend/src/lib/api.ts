@@ -142,6 +142,24 @@ export interface AuthResult {
   refresh_token: string;
 }
 
+export type LoginResult = AuthResult | { mfa_required: true; challenge_token: string };
+export interface MfaStatus { enabled: boolean; recovery_codes_remaining: number }
+export function apiMfaStatus(): Promise<MfaStatus> {
+  return request('/api/auth/mfa/status');
+}
+export function apiMfaSetup(password: string): Promise<{ secret: string; otpauth_uri: string }> {
+  return request('/api/auth/mfa/setup', { method: 'POST', body: JSON.stringify({ password }) }, false);
+}
+export function apiMfaEnable(code: string): Promise<AuthResult & { recovery_codes: string[] }> {
+  return request('/api/auth/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) }, false);
+}
+export function apiMfaDisable(password: string, code: string): Promise<AuthResult> {
+  return request('/api/auth/mfa/disable', { method: 'POST', body: JSON.stringify({ password, code }) }, false);
+}
+export function apiMfaVerify(challenge_token: string, code: string): Promise<AuthResult> {
+  return request('/api/auth/mfa/verify', { method: 'POST', body: JSON.stringify({ challenge_token, code }) }, false);
+}
+
 export async function apiRegister(email: string, name: string, password: string): Promise<AuthResult> {
   return request<AuthResult>('/api/auth/register', {
     method: 'POST',
@@ -149,8 +167,8 @@ export async function apiRegister(email: string, name: string, password: string)
   });
 }
 
-export async function apiLogin(email: string, password: string): Promise<AuthResult> {
-  return request<AuthResult>('/api/auth/login', {
+export async function apiLogin(email: string, password: string): Promise<LoginResult> {
+  return request<LoginResult>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });

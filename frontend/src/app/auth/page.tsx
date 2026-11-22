@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiLogin, apiRegister, tokens } from '@/lib/api';
+import { apiLogin, apiRegister, apiMfaVerify, tokens } from '@/lib/api';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -12,20 +12,28 @@ export default function AuthPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [challenge, setChallenge] = useState('');
+  const [code, setCode] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) { setError('Заполните все поля'); return; }
-    if (mode === 'register' && !name) { setError('Введите имя'); return; }
+    if (!challenge && (!email || !password)) { setError('Заполните все поля'); return; }
+    if (!challenge && mode === 'register' && !name) { setError('Введите имя'); return; }
 
     setLoading(true);
     try {
-      const result = mode === 'login'
+      const result = challenge ? await apiMfaVerify(challenge, code.trim()) : mode === 'login'
         ? await apiLogin(email, password)
         : await apiRegister(email, name, password);
 
+      if ('mfa_required' in result) {
+        tokens.clear();
+        setPassword('');
+        setChallenge(result.challenge_token);
+        return;
+      }
       tokens.set(result.access_token, result.refresh_token);
       router.push('/dashboard');
     } catch (err: unknown) {
@@ -47,7 +55,7 @@ export default function AuthPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-8">
-          <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+          {!challenge && <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
             <button
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
@@ -64,13 +72,21 @@ export default function AuthPage() {
             >
               Регистрация
             </button>
-          </div>
+          </div>}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {challenge ? <>
+              <h2 className="font-semibold text-slate-800">Подтверждение входа</h2>
+              <label htmlFor="mfa-code" className="text-sm text-slate-600">Введите код из приложения-аутентификатора или один резервный код.</label>
+              <input id="mfa-code" autoFocus autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value)} maxLength={64} required className="w-full px-4 py-2.5 border border-slate-200 rounded-xl" />
+              <button type="button" disabled={loading} onClick={() => { setChallenge(''); setCode(''); setError(''); }} className="text-sm text-emerald-700">Вернуться ко входу</button>
+            </> : <>
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Имя</label>
+                <label htmlFor="auth-name" className="block text-sm font-medium text-slate-700 mb-1">Имя</label>
                 <input
+                  id="auth-name"
+                  autoComplete="name"
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
@@ -80,8 +96,10 @@ export default function AuthPage() {
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label htmlFor="auth-email" className="block text-sm font-medium text-slate-700 mb-1">Email</label>
               <input
+                id="auth-email"
+                autoComplete="username"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -90,8 +108,10 @@ export default function AuthPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
+              <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
               <input
+                id="auth-password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -100,8 +120,9 @@ export default function AuthPage() {
               />
             </div>
 
+            </>}
             {error && (
-              <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+              <p role="alert" className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
             )}
 
             <button
@@ -109,7 +130,7 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-medium rounded-xl text-sm transition-colors mt-1"
             >
-              {loading ? 'Загрузка...' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
+              {loading ? 'Загрузка...' : challenge ? 'Подтвердить вход' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
             </button>
           </form>
 

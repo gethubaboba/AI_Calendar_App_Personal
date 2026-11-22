@@ -7,6 +7,8 @@
 [Публикация сайта через GitHub Pages и Tailscale Funnel](pages_tailscale.md)
 [Аудит публикации Pages и Funnel](pages_tailscale_audit.md)
 
+[Двухфакторная аутентификация](two_factor_auth.md)
+
 ## Лабораторная работа 4
 
 * [Задание 1. Модель требований и реестр Use Case](./lab4_task1.md)

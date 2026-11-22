@@ -55,27 +55,27 @@ def _create_token(data: dict, expires_delta: timedelta) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, auth_version: int = 0, mfa: bool = False) -> str:
     """Создаёт короткоживущий access-токен."""
     return _create_token(
-        {"sub": str(user_id), "type": "access"},
+        {"sub": str(user_id), "type": "access", "auth_version": auth_version, "mfa": mfa},
         timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
 
-def create_refresh_token(user_id: int) -> str:
+def create_refresh_token(user_id: int, auth_version: int = 0, mfa: bool = False) -> str:
     """Создаёт долгоживущий refresh-токен."""
     return _create_token(
-        {"sub": str(user_id), "type": "refresh"},
+        {"sub": str(user_id), "type": "refresh", "auth_version": auth_version, "mfa": mfa},
         timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
 
-def decode_token(token: str, expected_type: str = "access") -> int:
+def decode_claims(token: str, expected_type: str = "access") -> dict:
     """
     Декодирует JWT-токен.
 
-    Возвращает user_id (int) или бросает HTTPException 401.
+    Возвращает проверенные claims или бросает HTTPException 401.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,11 +86,44 @@ def decode_token(token: str, expected_type: str = "access") -> int:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: Optional[str] = payload.get("sub")
         token_type: Optional[str] = payload.get("type")
-        if user_id is None or token_type != expected_type:
+        if user_id is None or token_type != expected_type or "exp" not in payload:
             raise credentials_exception
-        return int(user_id)
-    except JWTError:
+        int(user_id)
+        return payload
+    except (JWTError, ValueError, TypeError):
         raise credentials_exception
+
+
+def decode_token(token: str, expected_type: str = "access") -> int:
+    return int(decode_claims(token, expected_type)["sub"])
+
+
+def session_user(token: str, db: Session, expected_type: str = "access", lock: bool = False):
+    claims = decode_claims(token, expected_type)
+    query = db.query(models.User).filter_by(id=int(claims["sub"]))
+    if lock:
+        query = query.with_for_update().populate_existing()
+    user = query.first()
+    # Legacy tokens belong to version zero, and only to accounts without MFA.
+    if (user is None or type(claims.get("auth_version", 0)) is not int
+            or claims.get("auth_version", 0) != user.auth_version
+            or (user.mfa_enabled and claims.get("mfa") is not True)):
+        raise HTTPException(status_code=401, detail="Сессия истекла. Войдите снова.")
+    return user
+
+
+def issue_tokens(user: models.User, mfa: bool = False):
+    from schemas import Token
+    if user.mfa_enabled and not mfa:
+        raise HTTPException(status_code=401, detail="Требуется второй фактор")
+    return Token(
+        access_token=create_access_token(user.id, user.auth_version, mfa),
+        refresh_token=create_refresh_token(user.id, user.auth_version, mfa),
+    )
+
+
+def get_locked_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_session)):
+    return session_user(token, db, lock=True)
 
 
 # ─── FastAPI Dependency ───────────────────────────────────────────────────────
@@ -103,11 +136,4 @@ def get_current_user(
     FastAPI dependency.
     Извлекает текущего пользователя из Bearer-токена.
     """
-    user_id = decode_token(token, expected_type="access")
-    user = db.get(models.User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Пользователь не найден",
-        )
-    return user
+    return session_user(token, db)
