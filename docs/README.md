@@ -8,6 +8,7 @@
 [Аудит публикации Pages и Funnel](pages_tailscale_audit.md)
 
 [Двухфакторная аутентификация](two_factor_auth.md)
+[Аудит 2FA](two_factor_audit.md)
 
 ## Лабораторная работа 4
 

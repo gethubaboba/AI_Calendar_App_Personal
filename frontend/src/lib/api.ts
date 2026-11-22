@@ -28,15 +28,28 @@ export const tokens = {
 
 // ── Базовый fetch ─────────────────────────────────────────────────────────────
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Сервер не ответил вовремя. Проверьте подключение и повторите попытку.');
+    }
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
 async function tryRefresh(): Promise<boolean> {
   const refresh = tokens.getRefresh();
   if (!refresh) return false;
   try {
-    const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+    const res = await fetchWithTimeout(`${BASE_URL}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refresh }),
-    });
+    }, 20000);
     if (!res.ok) return false;
     const data = await res.json();
     tokens.set(data.access_token, data.refresh_token);
@@ -54,7 +67,7 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
     ...(options.headers as Record<string, string> ?? {}),
   };
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const res = await fetchWithTimeout(`${BASE_URL}${path}`, { ...options, headers }, path.startsWith('/api/auth/') ? 20000 : 120000);
 
   if (res.status === 401 && retry && path !== '/api/auth/login') {
     const refreshed = await tryRefresh();
