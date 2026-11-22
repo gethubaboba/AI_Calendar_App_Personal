@@ -60,7 +60,7 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
     const refreshed = await tryRefresh();
     if (refreshed) return request<T>(path, options, false);
     tokens.clear();
-    window.location.href = '/auth';
+    window.location.href = `${process.env.NEXT_PUBLIC_APP_BASE_PATH ?? ''}/auth/`;
     throw new Error('Unauthorized');
   }
 

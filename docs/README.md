@@ -4,6 +4,8 @@
 
 [Метрики и локальный мониторинг](backend_metrics.md)
 
+[Публикация сайта через GitHub Pages и Tailscale Funnel](pages_tailscale.md)
+
 ## Лабораторная работа 4
 
 * [Задание 1. Модель требований и реестр Use Case](./lab4_task1.md)
