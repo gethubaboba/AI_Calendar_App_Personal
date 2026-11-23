@@ -15,13 +15,18 @@ export default function SecurityPage() {
   const [setup, setSetup] = useState<{ secret: string; qr: string } | null>(null);
   const [recovery, setRecovery] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   const load = async () => {
-    const [user, mfa] = await Promise.all([apiGetMe(), apiMfaStatus()]);
-    setName(user.name);
-    setStatus(mfa);
+    setLoading(true);
+    setError('');
+    try {
+      setStatus(await apiMfaStatus());
+      // The header name is optional; a profile lookup must not block MFA setup.
+      void apiGetMe().then(user => setName(user.name)).catch(() => {});
+    } finally { setLoading(false); }
   };
   useEffect(() => {
     if (!tokens.getAccess()) { router.replace('/auth'); return; }
@@ -35,11 +40,13 @@ export default function SecurityPage() {
       if (status?.enabled) {
         const result = await apiMfaDisable(password, code.trim());
         tokens.set(result.access_token, result.refresh_token);
+        setStatus({ enabled: false, recovery_codes_remaining: 0 });
         setMessage('Двухфакторная аутентификация отключена. Другие сеансы завершены.');
       } else if (setup) {
         const result = await apiMfaEnable(code.trim());
         tokens.set(result.access_token, result.refresh_token);
         setRecovery(result.recovery_codes);
+        setStatus({ enabled: true, recovery_codes_remaining: result.recovery_codes.length });
         setSetup(null);
         setMessage('Двухфакторная аутентификация включена. Другие сеансы завершены.');
       } else {
@@ -48,7 +55,6 @@ export default function SecurityPage() {
         setSetup({ secret: result.secret, qr });
       }
       setPassword(''); setCode('');
-      setStatus(await apiMfaStatus());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось изменить настройки');
     } finally { setBusy(false); }
@@ -65,7 +71,7 @@ export default function SecurityPage() {
         {status && <p className="font-medium">{status.enabled ? `Включена. Резервных кодов осталось: ${status.recovery_codes_remaining}.` : 'Пока отключена.'}</p>}
         {error && <p role="alert" className="text-red-700 bg-red-50 p-3 rounded-xl text-sm">{error}</p>}
         {message && <p role="status" className="text-emerald-800 bg-emerald-50 p-3 rounded-xl text-sm">{message}</p>}
-        {!status && <button onClick={() => load().catch(err => setError(err.message))} className="text-emerald-700">Повторить загрузку</button>}
+        {!status && <button disabled={loading} onClick={() => load().catch(err => setError(err.message))} className="text-emerald-700 disabled:opacity-60">{loading ? 'Загрузка настроек…' : 'Повторить загрузку'}</button>}
         {recovery.length > 0 ? <div className="space-y-4">
           <h3 className="font-semibold">Сохраните резервные коды</h3>
           <p className="text-sm text-slate-600">Каждый код заменяет код с телефона один раз. Они показываются только сейчас. Сохраните их в менеджере паролей или распечатайте и храните отдельно от телефона.</p>
