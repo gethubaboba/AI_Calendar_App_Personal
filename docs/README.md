@@ -11,6 +11,7 @@
 [Аудит 2FA](two_factor_audit.md)
 
 [Восстановление пароля через почту](password_reset.md)
+[Аудит восстановления пароля](password_reset_audit.md)
 
 ## Лабораторная работа 4
 
