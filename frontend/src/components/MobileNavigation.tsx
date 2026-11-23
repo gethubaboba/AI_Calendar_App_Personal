@@ -7,7 +7,7 @@ export default function MobileNavigation() {
   const pathname = usePathname();
 
   // Не показываем навигацию на страницах аутентификации
-  if (pathname?.startsWith('/auth')) {
+  if (pathname?.startsWith('/auth') || pathname?.startsWith('/forgot-password') || pathname?.startsWith('/reset-password')) {
     return null;
   }
 

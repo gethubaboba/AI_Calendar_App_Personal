@@ -59,6 +59,32 @@ class MFAChallenge(Base):
     attempts = Column(Integer, nullable=False, default=0, server_default=text("0"))
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    token_hash = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    auth_version = Column(Integer, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+
+class PasswordResetRate(Base):
+    __tablename__ = "password_reset_rates"
+
+    key = Column(String(64), primary_key=True)
+    window_start = Column(DateTime, nullable=False)
+    count = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    last_request_at = Column(DateTime, nullable=False, index=True)
+
+
+class PasswordResetMailSlot(Base):
+    __tablename__ = "password_reset_mail_slots"
+
+    id = Column(Integer, primary_key=True)
+    owner = Column(String(64), nullable=True)
+    lease_until = Column(DateTime, nullable=False)
+
+
 class Event(Base):
     """Событие: встреча, задача или заметка-событие."""
     __tablename__ = "events"

@@ -156,6 +156,12 @@ export interface AuthResult {
 }
 
 export type LoginResult = AuthResult | { mfa_required: true; challenge_token: string };
+export function apiForgotPassword(email: string): Promise<{ message: string }> {
+  return request('/api/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) }, false);
+}
+export function apiResetPassword(token: string, new_password: string): Promise<{ message: string }> {
+  return request('/api/auth/password/reset', { method: 'POST', body: JSON.stringify({ token, new_password }) }, false);
+}
 export interface MfaStatus { enabled: boolean; recovery_codes_remaining: number }
 export function apiMfaStatus(): Promise<MfaStatus> {
   return request('/api/auth/mfa/status');

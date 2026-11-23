@@ -7,7 +7,7 @@ POST /api/auth/refresh   — обновление access-токена по refre
 GET  /api/auth/me        — информация о текущем пользователе
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from db import get_session
@@ -20,7 +20,7 @@ from auth import (
     get_current_user,
     get_locked_user,
 )
-from services import mfa
+from services import mfa, password_reset, reset_mail
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -64,6 +64,22 @@ def refresh_token(data: schemas.TokenRefresh, db: Session = Depends(get_session)
     """Обновление access-токена по refresh-токену."""
     user = session_user(data.refresh_token, db, expected_type="refresh", lock=True)
     return issue_tokens(user, mfa=user.mfa_enabled)
+
+
+@router.post("/password/forgot", response_model=schemas.AuthMessage)
+def forgot_password(data: schemas.PasswordForgot, background: BackgroundTasks,
+                    db: Session = Depends(get_session)):
+    config = reset_mail.configuration()
+    email = str(data.email).strip().lower()
+    delivery = password_reset.reserve_delivery(db, email)
+    if delivery:
+        background.add_task(password_reset.deliver_reset, email, config, *delivery)
+    return {"message": password_reset.REQUEST_MESSAGE}
+
+
+@router.post("/password/reset", response_model=schemas.AuthMessage)
+def reset_password(data: schemas.PasswordReset, db: Session = Depends(get_session)):
+    return password_reset.reset_password(db, data.token, data.new_password)
 
 
 @router.post("/mfa/verify", response_model=schemas.Token)

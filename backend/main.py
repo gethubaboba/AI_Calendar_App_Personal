@@ -9,6 +9,9 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from metrics import RequestMetricsMiddleware, render_metrics
 from routers import auth, events, notes, templates, analytics, notifications, ai, mcp_calendar
@@ -31,6 +34,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestMetricsMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def private_password_validation(request, exc):
+    # Pydantic validation details otherwise echo input values, including secrets.
+    if request.url.path.startswith("/api/auth/password/"):
+        return JSONResponse(status_code=422, content={
+            "detail": "Проверьте адрес, ссылку и новый пароль. Пароль должен содержать от 12 символов "
+                      "и занимать не более 72 байт UTF-8."
+        })
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.middleware("http")

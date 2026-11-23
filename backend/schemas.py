@@ -84,6 +84,19 @@ class MFAEnabled(Token):
     recovery_codes: List[str]
 
 
+class PasswordForgot(BaseModel):
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=72)
+
+
+class AuthMessage(BaseModel):
+    message: str
+
+
 # ─────────────────────────────────────────────
 # EVENT
 # ─────────────────────────────────────────────

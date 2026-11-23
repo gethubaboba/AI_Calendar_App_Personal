@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { apiLogin, apiRegister, apiMfaVerify, tokens } from '@/lib/api';
 
 export default function AuthPage() {
@@ -133,6 +134,7 @@ export default function AuthPage() {
               {loading ? 'Загрузка...' : challenge ? 'Подтвердить вход' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
             </button>
           </form>
+          {!challenge && mode === 'login' && <Link href="/forgot-password" className="block text-center mt-4 text-sm text-emerald-700 hover:underline">Забыли пароль?</Link>}
 
         </div>
       </div>
